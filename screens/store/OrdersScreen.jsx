@@ -208,13 +208,15 @@ const OrderList = ({
   setAlertVisible,
   setDeliveryCode,
   ...props
-}) =>
-  orders.length === 0 ? (
-    <NoDataView dataText="órdenes" />
-  ) : (
+}) => {
+  if (orders.length === 0) {
+    return <NoDataView dataText="órdenes" />;
+  }
+
+  return (
     <FlatList
       data={orders}
-      keyExtractor={(order) => order.idOrder.toString()}
+      keyExtractor={(order, index) => `${order.idOrder}-${index}`}
       renderItem={({ item }) => (
         <OrderItem
           order={item}
@@ -226,6 +228,7 @@ const OrderList = ({
       )}
     />
   );
+};
 
 const FilterButtons = ({
   setShowFilter,

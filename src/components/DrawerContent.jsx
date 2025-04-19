@@ -57,6 +57,7 @@ const DrawerContent = ({ navigation, state }) => {
       const totalDeliveryAvailable = await getCountDeliveryAvailable(
         await getMunicipio(),
       );
+      console.log(totalDeliveryAvailable);
 
       setOrderCount(totalDeliveryAvailable);
     };

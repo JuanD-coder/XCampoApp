@@ -145,7 +145,12 @@ const OrderItem = React.memo(
           (order.state === "FINALIZADA" && (
             <StyledButton
               green
-              onPress={() => console.log("Ver pedido")}
+              onPress={() =>
+                navigation.navigate("DeliverOrderClient", {
+                  orderClient: { order },
+                  context: " ",
+                })
+              }
               title="Ver Pedido"
             />
           ))}
@@ -173,9 +178,11 @@ const OrderHeader = ({ order, onChatPress }) => (
       </Text>
       <Text style={styles.orderTotal}>
         <Text style={styles.delivery}>Repartidor: </Text>
-        {order.delivery === true
-          ? "Viene en camino un repartidor"
-          : "A espera de un reaprtidor"}
+        {order.state === "FINALIZADA"
+          ? "Entregado"
+          : order.delivery === true
+            ? "Viene en camino un repartidor"
+            : "A espera de un reaprtidor"}
       </Text>
     </View>
 
