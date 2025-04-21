@@ -144,7 +144,7 @@ export async function updateProductId(
       name: form.productName,
       description: form.productDescription,
       measurementUnit: form.unidad,
-      price: parseInt(form.productPrice),
+      price: parseInt(form.productPrice.replace(/\./g, ""), 10),
       stock: parseInt(form.stock),
       seller: {
         id_seller: idSeller,

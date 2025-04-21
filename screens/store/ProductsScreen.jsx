@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import {
   View,
   Text,
@@ -8,122 +8,131 @@ import {
   ActivityIndicator,
 } from "react-native";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+
 /* Styles */
 import StyledButtonIcon from "../../src/styles/StyledButtonIcon.jsx";
 import StyledButton from "../../src/styles/StyledButton.jsx";
-/* Componentes */
+
+/* Components */
 import TEXTS from "../../src/string/string.js";
 import theme from "../../src/theme/theme.js";
 import SearchBar from "../../src/components/SearchBar.jsx";
 import NoDataView from "../../src/components/NotDataView.jsx";
 import OrderAlert from "../../src/components/Alerts/OrderAlert.jsx";
+import SalesAlert from "../../src/components/Alerts/SalesAlert.jsx";
+
+/* Utils */
 import { formatPrice, HOME_STYLES } from "../../src/utils/constants.js";
-/* Service */
+import { getFirstURLFromString } from "../../fetch/UseFetch.js";
+
+/* Services */
 import {
   listAllProductBySeller,
   deleteProductId,
 } from "../../services/productService.js";
 import { getSellerID } from "../../services/SellerService.js";
-import { getFirstURLFromString } from "../../fetch/UseFetch.js";
-import SalesAlert from "../../src/components/Alerts/SalesAlert.jsx";
 import { getSalesProducts } from "../../services/OrdersService.js";
 
 const ProductsScreen = ({ route, navigation }) => {
   const { idUser } = route.params || {};
+  const [idSeller, setIdSeller] = useState(null);
   const [products, setProducts] = useState([]);
-  const [state, setState] = useState({
-    alertConfig: { visible: false, type: "", message: "" },
-  });
+  const [filteredProducts, setFilteredProducts] = useState([]);
+  const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [idSeller, setIdSeller] = useState(null);
   const [selectedProduct, setSelectedProduct] = useState(null);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [filteredProducts, setFilteredProducts] = useState(products);
+  const [alertConfig, setAlertConfig] = useState({
+    visible: false,
+    type: "",
+    message: "",
+  });
 
-  useEffect(() => {
-    const fetchSellerID = async () => {
-      const sellerID = await getSellerID(idUser);
-      setIdSeller(sellerID);
-    };
-    fetchSellerID();
+  const fetchSellerID = useCallback(async () => {
+    const sellerID = await getSellerID(idUser);
+    setIdSeller(sellerID);
   }, [idUser]);
 
-  useEffect(() => {
-    fetchProducts();
-  }, [fetchProducts, idSeller]);
-
-  useEffect(() => {
-    const unsubscribe = navigation.addListener("focus", () => {
-      if (idSeller) fetchProducts();
-    });
-
-    return unsubscribe;
-  }, [navigation, idSeller, fetchProducts]);
-
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const fetchProducts = async () => {
+  const fetchProducts = useCallback(async () => {
     if (!idSeller) return;
-
     try {
       const listProduct = await listAllProductBySeller(idSeller);
       setProducts(listProduct);
+      setFilteredProducts(listProduct);
       setLoading(false);
     } catch (error) {
-      setError("Error al obtener los productos: " + error);
+      setError("Error al obtener los productos: " + error.message);
       setLoading(false);
     }
+  }, [idSeller]);
+
+  useEffect(() => {
+    fetchSellerID();
+  }, [fetchSellerID]);
+
+  useEffect(() => {
+    if (idSeller) fetchProducts();
+  }, [idSeller, fetchProducts]);
+
+  useEffect(() => {
+    const unsubscribe = navigation.addListener("focus", fetchProducts);
+    return unsubscribe;
+  }, [navigation, fetchProducts]);
+
+  const handleSearch = (text) => {
+    setSearchTerm(text);
+    const term = text.toLowerCase();
+    setFilteredProducts(
+      text
+        ? products.filter((p) => p.name.toLowerCase().includes(term))
+        : products,
+    );
   };
 
   const handleEdit = (product) => {
     navigation.navigate("RegisterProducts", {
       title: `Editar Producto ${product.name}`,
-      idSeller: idSeller,
-      product: product,
+      idSeller,
+      product,
     });
   };
 
   const handleDelete = async (productId) => {
     try {
       await deleteProductId(productId, idSeller);
-      /* Show Alert */
-      setState((prev) => ({
-        ...prev,
-        alertConfig: {
-          visible: true,
-          type: "error",
-          message: `Se elimino un producto correctamente`,
-        },
-      }));
-      /* List Product */
-      setProducts((prevProducts) =>
-        prevProducts.filter((product) => product.idProduct !== productId),
+      setAlertConfig({
+        visible: true,
+        type: "error",
+        message: "Se eliminó un producto correctamente",
+      });
+      setProducts((prev) => prev.filter((p) => p.idProduct !== productId));
+      setFilteredProducts((prev) =>
+        prev.filter((p) => p.idProduct !== productId),
       );
     } catch (error) {
-      setError("Error al eliminar el producto: " + error);
+      setError("Error al eliminar el producto: " + error.message);
     }
   };
 
   const handleShowSales = async (product) => {
+    const totalSales = await getSalesProducts(product.idProduct);
     setSelectedProduct({
       name: product.name,
       id: product.idProduct,
-      totalSales: await getSalesProducts(product.idProduct),
+      totalSales,
     });
   };
 
-  const handleSearch = (text) => {
-    setSearchTerm(text);
+  const renderProduct = ({ item }) => (
+    <ProductCard
+      product={item}
+      onEdit={handleEdit}
+      onSales={() => handleShowSales(item)}
+      onDelete={handleDelete}
+    />
+  );
 
-    if (text) {
-      const filtered = products.filter((product) =>
-        product.name.toLowerCase().includes(text.toLowerCase()),
-      );
-      setFilteredProducts(filtered);
-    } else {
-      setFilteredProducts(products);
-    }
-  };
+  const shouldShowNoData = filteredProducts.length === 0;
 
   return (
     <View style={HOME_STYLES.container}>
@@ -134,58 +143,26 @@ const ProductsScreen = ({ route, navigation }) => {
       ) : (
         <>
           <Text style={styles.title}>Productos</Text>
-
           <SearchBar
             placeholder="Buscar productos..."
             value={searchTerm}
             onChangeText={handleSearch}
           />
-
-          {products.length < 1 ? (
-            <NoDataView dataText="productos" />
-          ) : filteredProducts.length > 0 ? (
-            <FlatList
-              data={filteredProducts}
-              keyExtractor={(item, index) =>
-                item?.idProduct?.toString() || index.toString()
-              }
-              contentContainerStyle={{
-                paddingHorizontal: 10,
-                paddingBottom: 85,
-              }}
-              renderItem={({ item }) => (
-                <ProductCard
-                  product={item}
-                  onEdit={handleEdit}
-                  onSales={() => handleShowSales(item)}
-                  onDelete={handleDelete}
-                />
-              )}
-            />
-          ) : searchTerm ? (
+          {products.length === 0 || shouldShowNoData ? (
             <NoDataView dataText="productos" />
           ) : (
             <FlatList
-              data={products}
-              keyExtractor={(item, index) =>
-                item?.idProduct?.toString() || index.toString()
+              data={filteredProducts}
+              keyExtractor={(item) =>
+                item?.idProduct?.toString() ?? Math.random().toString()
               }
-              contentContainerStyle={{
-                paddingHorizontal: 10,
-                paddingBottom: 85,
-              }}
-              renderItem={({ item }) => (
-                <ProductCard
-                  product={item}
-                  onEdit={handleEdit}
-                  onSales={() => handleShowSales(item)}
-                  onDelete={handleDelete}
-                />
-              )}
+              contentContainerStyle={styles.flatListContainer}
+              renderItem={renderProduct}
             />
           )}
         </>
       )}
+
       <StyledButtonIcon
         fab
         btnFab
@@ -196,7 +173,7 @@ const ProductsScreen = ({ route, navigation }) => {
         onPress={() =>
           navigation.navigate("RegisterProducts", {
             title: TEXTS.homeSeller.ADD_PRODUCT,
-            idSeller: idSeller,
+            idSeller,
           })
         }
       />
@@ -205,20 +182,15 @@ const ProductsScreen = ({ route, navigation }) => {
         visible={!!selectedProduct}
         onClose={() => setSelectedProduct(null)}
         productName={selectedProduct?.name || "Producto"}
-        productId={`PDT-${selectedProduct?.id}` || "PDT-012"}
+        productId={`PDT-${selectedProduct?.id || "012"}`}
         totalSales={selectedProduct?.totalSales || 0}
       />
 
       <OrderAlert
-        visible={state.alertConfig.visible}
-        type={state.alertConfig.type}
-        message={state.alertConfig.message}
-        onClose={() =>
-          setState((prev) => ({
-            ...prev,
-            alertConfig: { ...prev.alertConfig, visible: false },
-          }))
-        }
+        visible={alertConfig.visible}
+        type={alertConfig.type}
+        message={alertConfig.message}
+        onClose={() => setAlertConfig((prev) => ({ ...prev, visible: false }))}
       />
     </View>
   );
@@ -227,24 +199,26 @@ const ProductsScreen = ({ route, navigation }) => {
 const ProductCard = ({ product, onEdit, onSales, onDelete }) => (
   <View style={styles.card}>
     <Image
-      source={{
-        uri: getFirstURLFromString(product.urlImage) || " ",
-      }}
+      source={{ uri: getFirstURLFromString(product.urlImage) || " " }}
       style={styles.productImage}
     />
     <View style={styles.cardContent}>
       <Text style={styles.productName}>{product.name}</Text>
       <Text style={styles.productDescription}>{product.description}</Text>
+
       <Text style={styles.productData}>
         Unidad: <Text style={styles.pdtValue}>{product.measurementUnit}</Text>
       </Text>
+
       <Text style={styles.productData}>
         Precio:{" "}
         <Text style={styles.pdtValue}>${formatPrice(product.price)}</Text>
       </Text>
+
       <Text style={styles.productData}>
-        Categoria: <Text style={styles.pdtValue}>{product.nameCategory}</Text>
+        Categoría: <Text style={styles.pdtValue}>{product.nameCategory}</Text>
       </Text>
+
       <Text style={styles.productData}>
         Inventario disponible:{" "}
         <Text style={styles.pdtValue}>{product.stock} Und</Text>
@@ -293,6 +267,10 @@ const styles = StyleSheet.create({
   cardContent: {
     flex: 1,
     justifyContent: "space-between",
+  },
+  flatListContainer: {
+    paddingBottom: 85,
+    paddingHorizontal: 10,
   },
   pdtValue: {
     color: theme.colors.red,

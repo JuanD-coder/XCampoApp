@@ -84,7 +84,7 @@ const RegisterProducts = ({ route, navigation }) => {
     } else {
       setIsEditing(false);
     }
-  }, [isEditing, product]);
+  }, [product]);
 
   const handleInputChange = (field, value) => {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -143,6 +143,7 @@ const RegisterProducts = ({ route, navigation }) => {
     const formData = {
       ...form,
       categoria: selectedCategoryId || form.categoria,
+      productPrice: parseInt(form.productPrice.replace(/\./g, ""), 10),
     };
 
     if (isValid) {
@@ -370,7 +371,7 @@ const styles = StyleSheet.create({
     left: 15,
     padding: 5,
     position: "absolute",
-    top: 35,
+    top: 18,
     zIndex: 1,
   },
   container: {
@@ -445,6 +446,7 @@ const styles = StyleSheet.create({
     fontSize: 30,
     fontWeight: "bold",
     marginBottom: 20,
+    marginTop: 20,
     textAlign: "center",
   },
 });
