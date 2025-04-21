@@ -143,7 +143,6 @@ const RegisterProducts = ({ route, navigation }) => {
     const formData = {
       ...form,
       categoria: selectedCategoryId || form.categoria,
-      productPrice: parseInt(form.productPrice.replace(/\./g, ""), 10),
     };
 
     if (isValid) {
