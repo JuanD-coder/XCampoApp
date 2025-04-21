@@ -141,19 +141,13 @@ const OrderItem = React.memo(
           </>
         )}
 
-        {order.state === "LISTA_ENVIAR" ||
-          (order.state === "FINALIZADA" && (
-            <StyledButton
-              green
-              onPress={() =>
-                navigation.navigate("DeliverOrderClient", {
-                  orderClient: { order },
-                  context: " ",
-                })
-              }
-              title="Ver Pedido"
-            />
-          ))}
+        {order.state === "FINALIZADA" && (
+          <StyledButton green disabled title="Completado" />
+        )}
+
+        {order.state === "LISTA_ENVIAR" && (
+          <StyledButton green disabled title="Esperenado un repartidor" />
+        )}
       </Animated.View>
     );
   },

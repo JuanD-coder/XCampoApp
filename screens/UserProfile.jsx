@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { useRoute } from "@react-navigation/native";
+import * as SecureStore from "expo-secure-store";
 
 import API_URL from "../fetch/ApiConfig.js";
 import { getData } from "../fetch/UseFetch.js";
@@ -87,6 +88,15 @@ const UserProfile = () => {
       email: updatedUser.email,
     };
 
+    const userInfo = {
+      id: requestBody.user_id,
+      name: requestBody.name,
+      department: requestBody.department,
+      city: requestBody.city,
+      email: requestBody.email,
+      cell: requestBody.cell,
+    };
+
     try {
       const response = await fetchWithToken(`${API_URL}user`, {
         method: "PUT",
@@ -101,6 +111,8 @@ const UserProfile = () => {
       if (response.ok) {
         console.log("Usuario actualizado:", data);
         await getInfoUserId(updatedUser.user_id);
+
+        await SecureStore.setItemAsync("userInfo", JSON.stringify(userInfo));
       } else {
         console.log("Error al actualizar:", data);
       }
